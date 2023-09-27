@@ -1,7 +1,9 @@
 package com.productManagement.OrderService.Service;
 
 import com.productManagement.OrderService.Entity.Order;
+import com.productManagement.OrderService.External.Client.PaymentServiceProxyClient;
 import com.productManagement.OrderService.External.Client.ProductServiceProxyClient;
+import com.productManagement.OrderService.External.Request.PaymentRequest;
 import com.productManagement.OrderService.Model.OrderRequest;
 import com.productManagement.OrderService.Repository.OrderRepository;
 import lombok.extern.java.Log;
@@ -19,12 +21,14 @@ public class OrderServiceImpl implements OrderService {
 
     @Autowired
     OrderRepository orderRepository;
+    @Autowired
+    PaymentServiceProxyClient paymentServiceProxyClient;
     @Override
     public Long placeOrder(OrderRequest orderRequest) {
 
-        log.debug("Calling product service reduce api");
+        log.info("Calling product service reduce api");
         productServiceProxyClient.reduceQuantity(orderRequest.productId, orderRequest.quantity);
-        log.debug("Creating order");
+        log.info("Creating order");
         Order order= Order.builder().
                 quantity(orderRequest.quantity).
                 productId(orderRequest.productId).
@@ -33,7 +37,31 @@ public class OrderServiceImpl implements OrderService {
                 amount(orderRequest.amount).
                 build();
         orderRepository.save(order);
-        log.debug("Order created");
+        log.info("Order created");
+        log.info("Calling Payment service");
+        PaymentRequest paymentRequest= PaymentRequest.builder()
+                .orderId(order.getId())
+                .amount(orderRequest.getAmount())
+                .paymentMode(orderRequest.getPaymentMode())
+                .build();
+
+        String orderStatus=null;
+
+        try {
+            paymentServiceProxyClient.doPayment(paymentRequest);
+            log.info("Payment done successfully");
+            orderStatus="PLACED";
+        }catch (Exception e){
+            log.error("Error Occurred while placing the order");
+            orderStatus="FAILED";
+        }
+
+        order.setOrderStatus(orderStatus);
+        orderRepository.save(order);
+        if (orderStatus.equals("PLACED")) {
+            log.info("Order Placed successfully");
+        }
+
         return order.id;
     }
 }
