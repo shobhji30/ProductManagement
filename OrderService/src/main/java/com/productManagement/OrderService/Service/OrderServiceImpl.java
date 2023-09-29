@@ -1,23 +1,30 @@
 package com.productManagement.OrderService.Service;
 
 import com.productManagement.OrderService.Entity.Order;
+import com.productManagement.OrderService.Exception.CustomException;
 import com.productManagement.OrderService.External.Client.PaymentServiceProxyClient;
 import com.productManagement.OrderService.External.Client.ProductServiceProxyClient;
 import com.productManagement.OrderService.External.Request.PaymentRequest;
+import com.productManagement.OrderService.Model.OrderDetail;
 import com.productManagement.OrderService.Model.OrderRequest;
+import com.productManagement.OrderService.Model.ProductDetail;
 import com.productManagement.OrderService.Repository.OrderRepository;
-import lombok.extern.java.Log;
-import lombok.extern.slf4j.Slf4j;
+import lombok.extern.log4j.Log4j2;
+import com.productManagement.ProductService.Model.ProductResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
 
 import java.time.Instant;
+import java.util.Optional;
 
 @Service
-@Slf4j
+@Log4j2
 public class OrderServiceImpl implements OrderService {
     @Autowired
     ProductServiceProxyClient productServiceProxyClient;
+//    @Autowired
+//    RestTemplate restTemplate;
 
     @Autowired
     OrderRepository orderRepository;
@@ -63,5 +70,32 @@ public class OrderServiceImpl implements OrderService {
         }
 
         return order.id;
+    }
+
+    @Override
+    public OrderDetail getOrderById(long id) {
+        log.info("Getting order Detail with id {}",id);
+        Optional<Order> order= Optional.ofNullable(orderRepository.findById(id).orElseThrow(() -> new CustomException("Order Not found with the given id", "Not_Found", 404)));
+
+        RestTemplate restTemplate = new RestTemplate();
+        log.info("Invoking Product Service to get product detail with product id {}",order.get().getProductId());
+        ProductResponse productResponse=restTemplate.getForObject("http://localhost:8080/product/"+order.get().getProductId(), ProductResponse.class);
+
+        ProductDetail productDetail=ProductDetail.builder()
+                .productPrice(productResponse.getProductPrice())
+                .productQuantity(productResponse.getProductQuantity())
+                .productName(productResponse.getProductName())
+                .productId(productResponse.getProductId())
+                .build();
+
+
+        OrderDetail orderDetail=OrderDetail.builder()
+                .amount(order.get().getAmount())
+                .orderDate(order.get().getOrderDate())
+                .orderId(order.get().getId())
+                .orderStatus(order.get().getOrderStatus())
+                .productDetail(productDetail)
+                .build();
+        return orderDetail;
     }
 }
