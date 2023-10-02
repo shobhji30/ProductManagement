@@ -20,4 +20,6 @@ public class OrderDetail {
     public Long amount;
 
     private ProductDetail productDetail;
+
+    private PaymentDetail paymentDetail;
 }

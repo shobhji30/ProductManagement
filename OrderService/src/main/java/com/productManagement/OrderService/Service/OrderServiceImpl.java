@@ -7,8 +7,10 @@ import com.productManagement.OrderService.External.Client.ProductServiceProxyCli
 import com.productManagement.OrderService.External.Request.PaymentRequest;
 import com.productManagement.OrderService.Model.OrderDetail;
 import com.productManagement.OrderService.Model.OrderRequest;
+import com.productManagement.OrderService.Model.PaymentDetail;
 import com.productManagement.OrderService.Model.ProductDetail;
 import com.productManagement.OrderService.Repository.OrderRepository;
+import com.productManagement.PaymentService.Model.PaymentResponse;
 import lombok.extern.log4j.Log4j2;
 import com.productManagement.ProductService.Model.ProductResponse;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -88,6 +90,21 @@ public class OrderServiceImpl implements OrderService {
                 .productId(productResponse.getProductId())
                 .build();
 
+        log.info("Invoking Payment Service to get product detail with order id {}",order.get().getId());
+
+        restTemplate=new RestTemplate();
+
+        PaymentResponse paymentResponse=restTemplate.getForObject("http://localhost:8081/payment/order/"+order.get().getId(), PaymentResponse.class);
+
+        PaymentDetail paymentDetail=PaymentDetail.builder()
+                .paymentId(paymentResponse.getPaymentId())
+                .paymentStatus(paymentResponse.getPaymentStatus())
+                .paymentDate(paymentResponse.getPaymentDate())
+                .amount(paymentResponse.getAmount())
+                .paymentMode(paymentResponse.getPaymentMode())
+                .build();
+
+
 
         OrderDetail orderDetail=OrderDetail.builder()
                 .amount(order.get().getAmount())
@@ -95,6 +112,7 @@ public class OrderServiceImpl implements OrderService {
                 .orderId(order.get().getId())
                 .orderStatus(order.get().getOrderStatus())
                 .productDetail(productDetail)
+                .paymentDetail(paymentDetail)
                 .build();
         return orderDetail;
     }
